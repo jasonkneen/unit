@@ -21190,6 +21190,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
       },
     } = this.$system
 
+    const { $x, $y } = this.$context
+
     if (this._abort_fullwindow_animation) {
       //
     } else {
@@ -21474,8 +21476,6 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
             map,
             (node: Tree<Tag & { trait: LayoutNode }>) => node.value.trait
           )
-<<<<<<< Updated upstream
-=======
 
           all_trait = mapObjVK(all_trait, (leaf_trait, leaf_id) => {
             if (leaf_trait) {
@@ -21496,7 +21496,6 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
               return leaf_trait_
             }
           })
->>>>>>> Stashed changes
         }
 
         let i = 0
@@ -31798,10 +31797,13 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     //   '_long_press_append_sub_component_children',
     //   parent_id,
     //   children,
-    //   slot_name
+    //   slot_name,
+    //   index
     // )
 
-    this.move_sub_component_root(parent_id, children, slot_name)
+    const at = this._get_component_children_count(parent_id)
+
+    this.move_sub_component_root(parent_id, children, slot_name, at)
   }
 
   private _get_sub_components_slot_map = (sub_component_ids): Dict<string> => {
@@ -31833,7 +31835,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
   private move_sub_component_root = (
     parent_id: string | null,
     children: string[],
-    slot_name: string = 'default'
+    slot_name: string = 'default',
+    index: number
   ) => {
     const prev_slot_map = this._get_sub_components_slot_map(children)
     const prev_parent_map = this._get_sub_components_parent_map(children)
@@ -31845,6 +31848,7 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
         parent_id,
         prev_parent_map,
         children,
+        index,
         slot_map,
         prev_slot_map
       )
@@ -32016,6 +32020,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
         this._animate_all_current_layout_layer_node()
       }
 
+      let i = slot_children.length
+
       for (const child_id of children) {
         const stop = this._animate_layout_core_anchor(
           child_id,
@@ -32026,8 +32032,11 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
             this._layout_layer_move_sub_component_child(
               current_layer_id,
               parent_id,
-              child_id
+              child_id,
+              i
             )
+
+            i++
           }
         )
       }
@@ -32047,7 +32056,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
         this._layout_layer_move_sub_component_child(
           child_parent_id,
           parent_id,
-          child_id
+          child_id,
+          i
         )
 
         if (!this._is_layout_component_layer_visible(parent_id)) {
@@ -32086,10 +32096,18 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
   ): void => {
     // console.log('Graph', '_pre_append_sub_component_child', parent_id, child_id)
 
+    const next_index = this._get_component_children_count(parent_id)
+
     this._state_pre_append_sub_component_child(parent_id, child_id, slot_name)
-    this._pod_move_sub_component_root(parent_id, [child_id], {
-      [child_id]: slot_name,
-    })
+
+    this._pod_move_sub_component_root(
+      parent_id,
+      [child_id],
+      {
+        [child_id]: slot_name,
+      },
+      next_index
+    )
   }
 
   private _state_pre_append_sub_component_child = (
@@ -32104,31 +32122,28 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     //   child_id
     // )
 
-    const is_child_fullwindow = this._is_sub_component_fullwindow(child_id)
+    const index = this._get_component_children_count(parent_id)
 
-    if (is_child_fullwindow) {
-      this._decouple_sub_component(child_id)
-    }
-
-    this._mem_push_sub_component_child(parent_id, child_id, slot_name)
-    this._spec_remove_sub_component_from_parent(child_id)
-    this._spec_append_sub_component_child(parent_id, child_id, slot_name)
-
-    if (is_child_fullwindow) {
-      this._couple_sub_component(child_id)
-    }
+    this._state_pre_insert_sub_component_child(
+      parent_id,
+      child_id,
+      slot_name,
+      index
+    )
   }
 
-  private _sim_pre_append_sub_component_child = (
+  private _state_pre_insert_sub_component_child = (
     parent_id: string,
     child_id: string,
-    slot_name: string
+    slot_name: string,
+    at: number
   ): void => {
     // console.log(
     //   'Graph',
-    //   '_sim_pre_append_sub_component_child',
+    //   '_state_pre_insert_sub_component_child',
     //   parent_id,
-    //   child_id
+    //   child_id,
+    //   at
     // )
 
     const is_child_fullwindow = this._is_sub_component_fullwindow(child_id)
@@ -32137,7 +32152,36 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
       this._decouple_sub_component(child_id)
     }
 
-    this._mem_push_sub_component_child(parent_id, child_id, slot_name)
+    this._mem_insert_sub_component_child(parent_id, child_id, slot_name, at)
+    this._spec_remove_sub_component_from_parent(child_id)
+    this._spec_append_sub_component_child(parent_id, child_id, slot_name)
+
+    if (is_child_fullwindow) {
+      this._couple_sub_component(child_id)
+    }
+  }
+
+  private _sim_pre_insert_sub_component_child = (
+    parent_id: string,
+    child_id: string,
+    slot_name: string,
+    index: number
+  ): void => {
+    // console.log(
+    //   'Graph',
+    //   '_sim_pre_insert_sub_component_child',
+    //   parent_id,
+    //   child_id,
+    //   index
+    // )
+
+    const is_child_fullwindow = this._is_sub_component_fullwindow(child_id)
+
+    if (is_child_fullwindow) {
+      this._decouple_sub_component(child_id)
+    }
+
+    this._mem_insert_sub_component_child(parent_id, child_id, slot_name, index)
 
     if (is_child_fullwindow) {
       this._couple_sub_component(child_id)
@@ -32879,6 +32923,12 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     include_scroll: () => boolean,
     callback: Callback
   ): Unlisten => {
+    const {
+      api: {
+        animation: { requestAnimationFrame },
+      },
+    } = this.$system
+
     const frame = () => {
       this._tick_animate_layout_transfer_children(
         parent_id,
@@ -32907,7 +32957,7 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
       }
     }
 
-    frame()
+    requestAnimationFrame(frame)
 
     return () => {
       this._cancel_layout_parent_children_animation(parent_id, slot_name)
@@ -33257,9 +33307,22 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
         }
 
         const target_component = this._get_sub_component(target_id)
-        const target_frame = this._get_sub_component_frame(target_frame_id)
 
-        const target_frame_trait = extractTrait(target_frame, measureText)
+        let target_trait: LayoutNode
+
+        if (this._tree_layout) {
+          target_trait = clone(this._layout_target_node[target_id])
+
+          const { $width, $height } = this.$context
+
+          target_trait.x += $width / 2 - target_trait.width / 2
+          target_trait.y += $height / 2 - target_trait.height / 2
+        } else {
+          const target_frame = this._get_sub_component_frame(target_frame_id)
+          const target_frame_trait = extractTrait(target_frame, measureText)
+
+          target_trait = target_frame_trait
+        }
 
         const slot_path = target_component.getSlotPath(slot_name)
         const slot_id =
@@ -33267,16 +33330,16 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
             ? `${target_id}/${slot_path.join('/')}`
             : target_id
 
-        reflectTreeTrait(target_frame_trait, target_tree, (path): Tag[] => {
+        reflectTreeTrait(target_trait, target_tree, (path): Tag[] => {
           const children_style = expandSlot(
             this._component,
-            target_frame_trait,
+            target_trait,
             slot_id,
             slot_path.length ? path.slice(1) : path,
             expand,
             (leaf_id, leaf_comp, leaf_parent) => {
               return this._extract_style(
-                target_frame_trait,
+                target_trait,
                 leaf_id,
                 leaf_comp,
                 leaf_parent
@@ -33387,17 +33450,17 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     }
   }
 
-  private _mem_push_sub_component_child = (
+  private _mem_push_parent_child = (
     parent_id: string,
     child_id: string,
     slot_name: string
   ): void => {
     // console.log(
     //   'Graph',
-    //   '_mem_push_parent_root',
+    //   '_mem_push_parent_child',
     //   parent_id,
     //   child_id,
-    //   slot_name
+    //   slot_name,
     // )
 
     const parent_component = this._get_sub_component(parent_id)
@@ -33409,6 +33472,28 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     this._layout_sub_component_parent[child_id] = parent_id
 
     this._mem_layout_push_parent_root(parent_id, child_id, slot_name)
+  }
+
+  private _mem_insert_parent_child = (
+    parent_id: string,
+    child_id: string,
+    slot_name: string,
+    at: number
+  ): void => {
+    // console.log(
+    //   'Graph',
+    //   '_mem_insert_parent_child',
+    //   parent_id,
+    //   child_id,
+    //   slot_name,
+    //   at
+    // )
+
+    this._mem_place_parent_root(parent_id, child_id, slot_name, at)
+
+    this._layout_sub_component_parent[child_id] = parent_id
+
+    this._mem_layout_insert_parent_root(parent_id, child_id, slot_name, at)
   }
 
   private _mem_layout_push_parent_root = (
@@ -33430,18 +33515,25 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     )
   }
 
-  private _mem_push_sub_component = (
-    parent_id: string | null,
+  private _mem_layout_insert_parent_root = (
+    parent_id: string,
     child_id: string,
-    slot_name: string
-  ) => {
-    // console.log('Graph', '_mem_push_sub_component', parent_id, child_id, slot_name)
+    slot_name: string,
+    index: number
+  ): void => {
+    // console.log(
+    //   'Graph',
+    //   '_mem_layout_insert_parent_root',
+    //   parent_id,
+    //   child_id,
+    //   slot_name,
+    //   index
+    // )
 
-    if (parent_id === null) {
-      this._mem_push_root(child_id)
-    } else {
-      this._mem_push_sub_component_child(parent_id, child_id, slot_name)
-    }
+    this._refresh_component_children_counter_up(
+      parent_id,
+      1 + (this._layout_component_count[child_id] || 0)
+    )
   }
 
   private _mem_push_root = (child_id: string) => {
@@ -33452,7 +33544,68 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     this._component.pushRoot(child_component)
   }
 
+  private _mem_place_root = (child_id: string, at: number) => {
+    const child_component = this._get_sub_component(child_id)
+
+    this._component.placeRootAt(child_component, at)
+  }
+
+  private _mem_place_parent_root = (
+    parent_id: string,
+    child_id: string,
+    slot_name: string,
+    at: number
+  ) => {
+    const parent = this._get_sub_component(parent_id)
+    const child = this._get_sub_component(child_id)
+
+    parent.placeParentRoot(child, at, slot_name)
+  }
+
   private _layout_layer_move_sub_component_child = (
+    parent_id: string,
+    next_parent_id: string | null,
+    child_id: string,
+    next_index: number
+  ): void => {
+    // console.log(
+    //   'Graph',
+    //   '_layout_layer_move_sub_component_child',
+    //   parent_id,
+    //   next_parent_id,
+    //   child_id,
+    //   next_index
+    // )
+
+    const layout_core = this._layout_core[child_id]
+
+    const parent_layout_layer = this._ensure_layout_layer(parent_id)
+    const next_parent_layout_layer = this._ensure_layout_layer(next_parent_id)
+
+    if (parent_layout_layer.children.$children.includes(layout_core)) {
+      parent_layout_layer.children.removeChild(layout_core)
+    }
+    if (!next_parent_layout_layer.children.$children.includes(layout_core)) {
+      next_parent_layout_layer.children.insertChild(
+        layout_core,
+        'default',
+        next_index
+      )
+    }
+
+    const layout_layer = this._get_layout_layer(child_id)
+
+    if (layout_layer) {
+      parent_layout_layer.layers.removeChild(layout_layer.layer)
+      next_parent_layout_layer.layers.insertChild(
+        layout_layer.layer,
+        'default',
+        next_index
+      )
+    }
+  }
+
+  private _layout_layer_move_sub_component_child_append = (
     parent_id: string,
     next_parent_id: string | null,
     child_id: string
@@ -33465,24 +33618,14 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     //   child_id
     // )
 
-    const layout_core = this._layout_core[child_id]
+    const next_index = this._get_component_children_count(next_parent_id)
 
-    const parent_layout_layer = this._ensure_layout_layer(parent_id)
-    const next_parent_layout_layer = this._ensure_layout_layer(next_parent_id)
-
-    if (parent_layout_layer.children.$children.includes(layout_core)) {
-      parent_layout_layer.children.removeChild(layout_core)
-    }
-    if (!next_parent_layout_layer.children.$children.includes(layout_core)) {
-      next_parent_layout_layer.children.appendChild(layout_core)
-    }
-
-    const layout_layer = this._get_layout_layer(child_id)
-
-    if (layout_layer) {
-      parent_layout_layer.layers.removeChild(layout_layer.layer)
-      next_parent_layout_layer.layers.appendChild(layout_layer.layer)
-    }
+    this._layout_layer_move_sub_component_child(
+      parent_id,
+      next_parent_id,
+      child_id,
+      next_index
+    )
   }
 
   private _ensure_parent_layout_layer = (
@@ -33793,14 +33936,16 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
   private _pod_move_sub_component_root = (
     parentId: string | null,
     children: string[],
-    slotMap: Dict<string>
+    slotMap: Dict<string>,
+    index: number
   ): void => {
     // console.log(
     //   'Graph',
     //   '_pod_move_sub_component_root',
     //   parentId,
     //   children,
-    //   slotMap
+    //   slotMap,
+    //   index
     // )
 
     const { fork, bubble } = this.$props
@@ -33811,6 +33956,7 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
       slotMap,
       fork,
       bubble,
+      index,
     })
   }
 
@@ -33908,12 +34054,20 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     next_slot_name: string
   ): void => {
     const children = this._spec_get_sub_component_children(parent_id)
+    const index = this._get_sub_component_index(parent_id)
 
     const slot_map = this._get_sub_components_slot_map(children)
     const parent_map = this._get_sub_components_parent_map(children)
 
     this._dispatch_action(
-      makeMoveSubComponentRootAction(null, parent_map, children, {}, slot_map)
+      makeMoveSubComponentRootAction(
+        null,
+        parent_map,
+        children,
+        index,
+        {},
+        slot_map
+      )
     )
 
     this._remove_sub_component_all_children(
@@ -33958,7 +34112,11 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
 
     const { x, y, width, height } = layout_parent_node
 
+    const parent_index = this._get_sub_component_index(parent_id)
+
     this._measure_sub_component_base(parent_id)
+
+    let i = parent_index + 1
 
     for (const child_id of children) {
       this._cancel_layout_sub_component_animation(child_id)
@@ -33966,8 +34124,11 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
       this._layout_layer_move_sub_component_child(
         parent_id,
         next_parent_id,
-        child_id
+        child_id,
+        i
       )
+
+      i++
 
       if (animate) {
         this._set_layout_core_position(child_id, x, y)
@@ -34005,8 +34166,17 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
       }
     }
 
+    i = parent_index + 1
+
     for (const child_id of children) {
-      this._pre_remove_sub_component_child(parent_id, child_id, next_parent_id)
+      this._pre_remove_sub_component_child(
+        parent_id,
+        child_id,
+        next_parent_id,
+        i
+      )
+
+      i++
     }
 
     this._refresh_current_layout_node_target_position()
@@ -34078,7 +34248,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
   private _pre_remove_sub_component_child = (
     parent_id: string,
     child_id: string,
-    next_parent_id: string | null
+    next_parent_id: string | null,
+    next_index: number
   ): void => {
     const is_child_fullwindow = this._is_sub_component_fullwindow(child_id)
 
@@ -34086,15 +34257,30 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
       this._decouple_sub_component(child_id)
     }
 
-    this._mem_move_out_sub_component_child(parent_id, child_id, next_parent_id)
-    this._layout_move_sub_component_child(parent_id, child_id, next_parent_id)
+    this._mem_move_out_sub_component_child(
+      parent_id,
+      child_id,
+      next_parent_id,
+      next_index
+    )
+    this._layout_mem_move_sub_component_child(
+      parent_id,
+      child_id,
+      next_parent_id
+    )
     this._spec_move_sub_component_child(
       parent_id,
       child_id,
       next_parent_id,
-      'default'
+      'default',
+      next_index
     )
-    this._pod_move_sub_component_root(next_parent_id, [child_id], {})
+    this._pod_move_sub_component_root(
+      next_parent_id,
+      [child_id],
+      {},
+      next_index
+    )
 
     if (is_child_fullwindow) {
       this._couple_sub_component(child_id)
@@ -34135,14 +34321,24 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     next_parent_id: string | null
   ): void => {
     const children = this._spec_get_sub_component_children(parent_id)
+    const parent_index = this._get_sub_component_index(parent_id)
+
+    let i = parent_index
 
     for (const child_id of children) {
-      this._layout_move_sub_component_child(parent_id, child_id, next_parent_id)
+      this._layout_mem_move_sub_component_child(
+        parent_id,
+        child_id,
+        next_parent_id
+      )
       this._layout_layer_move_sub_component_child(
         parent_id,
         next_parent_id,
-        child_id
+        child_id,
+        i
       )
+
+      i++
     }
   }
 
@@ -34159,20 +34355,24 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
   private _mem_move_out_sub_component_child = (
     parent_id: string,
     child_id: string,
-    next_parent_id: string | null
+    next_parent_id: string | null,
+    next_index: number
   ) => {
-    // if (this._tree_layout) {
     this._mem_pull_sub_component_child(parent_id, child_id)
 
     if (next_parent_id) {
-      this._mem_push_sub_component_child(next_parent_id, child_id, 'default')
+      this._mem_insert_sub_component_child(
+        next_parent_id,
+        child_id,
+        'default',
+        next_index
+      )
     } else {
       this._mem_push_root(child_id)
     }
-    // }
   }
 
-  private _layout_move_sub_component_child = (
+  private _layout_mem_move_sub_component_child = (
     parent_id: string,
     child_id: string,
     next_parent_id: string | null
@@ -34233,13 +34433,20 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
   ): void => {
     const children = this._spec_get_sub_component_children(parent_id)
 
-    for (const child_id of children) {
+    let i = 0
+
+    const parent_index = this._get_sub_component_index(parent_id)
+
+    for (const child_id of [...children]) {
       this._spec_move_sub_component_child(
         parent_id,
         child_id,
         next_parent_id,
-        'default'
+        'default',
+        parent_index + i
       )
+
+      i++
     }
 
     this._refresh_component_children_counter(parent_id)
@@ -34249,7 +34456,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     parent_id: string | null,
     child_id: string,
     next_parent_id: string,
-    next_slot_id: string
+    next_slot_id: string,
+    next_index: number
   ): void => {
     // console.log(
     //   'Graph',
@@ -34257,7 +34465,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     //   parent_id,
     //   child_id,
     //   next_parent_id,
-    //   next_slot_id
+    //   next_slot_id,
+    //   next_index
     // )
 
     this._spec.component = this._spec.component || {}
@@ -34272,14 +34481,14 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     }
 
     if (next_parent_id) {
-      appendSubComponentChild(
-        { parentId: next_parent_id, childId: child_id },
+      insertSubComponentChild(
+        { parentId: next_parent_id, childId: child_id, at: next_index },
         this._spec.component
       )
 
       this._layout_sub_component_parent[child_id] = next_parent_id
     } else {
-      appendRoot({ childId: child_id }, this._spec.component)
+      insertRoot({ childId: child_id, at: next_index }, this._spec.component)
 
       delete this._layout_sub_component_parent[child_id]
     }
@@ -34780,6 +34989,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
             const parent_id =
               this._spec_get_sub_component_parent_id(selected_node_id)
 
+            const parent_index = this._get_sub_component_index(selected_node_id)
+
             if (parent_id !== unit_id) {
               this._collapse_animation_next_parent[selected_node_id] = unit_id
               this._collapse_animation_next_parent_slot[selected_node_id] =
@@ -34793,7 +35004,8 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
               this._layout_layer_move_sub_component_child(
                 parent_id,
                 unit_id,
-                selected_node_id
+                selected_node_id,
+                parent_index
               )
             }
           }
@@ -41175,11 +41387,22 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
 
         const current_slot = 'default'
 
+        const parent_index = this._get_sub_component_index(unit_id)
+
+        let at = parent_index
+
         for (const child_id of children) {
           this._remove_sub_component_child(unit_id, child_id)
           this._remove_sub_component_root_base(child_id)
 
-          this._mem_push_sub_component(current_layer, child_id, current_slot)
+          this._mem_insert_sub_component_child(
+            current_layer,
+            child_id,
+            current_slot,
+            at
+          )
+
+          at++
         }
 
         this._animate_layout_sub_component_remove_children(
@@ -42993,7 +43216,7 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
 
       const slot = this._get_sub_component_slot_name(unit_id)
 
-      parent_sub_component.insertParentRoot(sub_component, i, slot)
+      parent_sub_component.placeParentRoot(sub_component, i, slot)
 
       if (!parent_layer_visible) {
         parent_sub_component.insertParentRootAt(sub_component, i, slot)
@@ -48482,7 +48705,7 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     to: number,
     slotName: string
   ) => {
-    this._sim_pre_append_sub_component_child(parentId, childId, slotName)
+    this._sim_pre_insert_sub_component_child(parentId, childId, slotName, to)
   }
 
   private _spec_move_root = (
@@ -55826,8 +56049,17 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
 
       const { children = [] } = sub_component_spec
 
+      const index = this._get_component_children_count(sub_component_id)
+
       bulk_actions.push(
-        makeMoveSubComponentRootAction(sub_component_id, {}, children, {}, {})
+        makeMoveSubComponentRootAction(
+          sub_component_id,
+          {},
+          children,
+          index,
+          {},
+          {}
+        )
       )
     }
 
@@ -56147,6 +56379,7 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
               slotMap: data.slotMap ?? {},
               fork,
               bubble,
+              index: data.index,
             })
 
           this._refresh_layout_node_target_position(null)
@@ -56842,34 +57075,38 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     }
   }
 
+  private _mem_push_sub_component = (
+    parent_id: string | null,
+    child_id: string,
+    slot_name: string
+  ) => {
+    // console.log('Graph', '_mem_push_sub_component', parent_id, child_id, slot_name)
+
+    if (parent_id === null) {
+      this._mem_push_root(child_id)
+    } else {
+      this._mem_push_parent_child(parent_id, child_id, slot_name)
+    }
+  }
+
   private _mem_insert_sub_component_child = (
     parent_id: string,
     child_id: string,
     slot_name: string,
-    i?: number
+    at: number
   ): void => {
     // console.log(
     //   'Graph',
     //   '_mem_insert_sub_component_child',
     //   parent_id,
-    //   child_id
+    //   child_id,
+    //   at
     // )
 
-    if (i === undefined) {
-      return this._mem_push_sub_component_child(parent_id, child_id, slot_name)
-    }
-
-    const parent_component = this._get_sub_component(parent_id)
-    const sub_component = this._get_sub_component(child_id)
-
-    if (this._is_fullwindow) {
-      // TODO
+    if (parent_id === null) {
+      this._mem_place_root(child_id, at)
     } else {
-      if (parent_component.$parentRoot.length > i) {
-        parent_component.insertParentRoot(sub_component, i, slot_name)
-      } else {
-        parent_component.pushParentRoot(sub_component, slot_name)
-      }
+      this._mem_insert_parent_child(parent_id, child_id, slot_name, at)
     }
   }
 
