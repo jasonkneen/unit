@@ -18751,8 +18751,9 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
     sub_component_ids: string[]
   ): string[] => {
     return sub_component_ids.sort((a, b) => {
-      const a_index = this._sub_component_index[a]
-      const b_index = this._sub_component_index[b]
+      const a_index = this._get_sub_component_index(a)
+      const b_index = this._get_sub_component_index(b)
+
       return a_index - b_index
     })
   }
@@ -55709,11 +55710,11 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
 
         this._spec_insert_component(parent_id, unit_id, at)
       } else {
-        const children = getSubComponentChildren(graph, parent_id)
+        const children = graph.component?.children ?? []
 
-        at = this._spec.component?.children?.length ?? 0
+        at = children.indexOf(unit_id)
 
-        this._spec_insert_component(parent_id, unit_id, at)
+        this._spec_insert_component(null, unit_id, at)
       }
     }
 
