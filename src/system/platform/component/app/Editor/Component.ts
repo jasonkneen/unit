@@ -31670,14 +31670,14 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
           ].reduce((acc, name) => {
             return {
               ...acc,
-              [name]: this.$system[name].bind(this.$system),
+              [name]: this._system[name].bind(this._system),
             }
           }, {}) as R),
           dispatchEvent,
           enterFullwindow,
           leaveFullwindow,
         },
-        this.$system
+        this._system
       )
 
       editor._graph.addEventListener(
@@ -31686,7 +31686,7 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
             api: {
               window: { setTimeout },
             },
-          } = this.$system
+          } = this._system
 
           const modified_bundle = editor.getUnitBundle()
 
@@ -31697,7 +31697,7 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
           const modified_value = `$${stringify(modified_bundle)}`
 
           const specs = weakMerge(
-            this.$system.specs,
+            this._system.specs,
             modified_bundle.specs ?? {}
           )
 
@@ -54254,6 +54254,10 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
 
     const { showLongPress } = this.$system
 
+    if (!showLongPress) {
+      return
+    }
+
     const { $theme } = this.$context
 
     const color = this._get_color()
@@ -54270,6 +54274,10 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
 
     if (!this._capturing_gesture) {
       const { captureGesture } = this.$system
+
+      if (!captureGesture) {
+        return
+      }
 
       const { $theme } = this.$context
 
@@ -58917,10 +58925,13 @@ export class Editor_ extends Element<HTMLDivElement, Props_> {
         forked_unit_spec.id
       )
 
-      setSpec(forked_unit_spec.id, forked_unit_spec)
       setSpec(next_parent_spec.id, next_parent_spec)
 
-      this._register_spec(forked_unit_spec.id, false)
+      const subgraph_at_path = this.getSubgraphAtPath(path)
+
+      if (!subgraph_at_path) {
+        this._register_spec(forked_unit_spec.id, false)
+      }
     }
   }
 
